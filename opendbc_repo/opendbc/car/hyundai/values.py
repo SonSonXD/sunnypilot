@@ -430,6 +430,10 @@ class CAR(Platforms):
     [HyundaiCarDocs("Kia K7 2017", car_parts=CarParts.common([CarHarness.hyundai_c]))],
     CarSpecs(mass=1648, wheelbase=2.86, steerRatio=16.8),
   )
+  KIA_K8_GL3 = HyundaiCanFDPlatformConfig(
+    [HyundaiCarDocs("Kia K8 GL3 (with HDA II) 2023", car_parts=CarParts.common([CarHarness.hyundai_k]))],
+    CarSpecs(mass=1642, wheelbase=2.895, steerRatio=13.27),
+  )
   KIA_K8_HEV_1ST_GEN = HyundaiCanFDPlatformConfig(
     [HyundaiCarDocs("Kia K8 Hybrid (with HDA II) 2023", "Highway Driving Assist II", car_parts=CarParts.common([CarHarness.hyundai_q]))],
     # mass: https://carprices.ae/brands/kia/2023/k8/1.6-turbo-hybrid, steerRatio: guesstimate from K5 platform
