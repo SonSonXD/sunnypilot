@@ -1,4 +1,5 @@
 from cereal import log
+from pathlib import Path
 from openpilot.common.params import Params, UnknownKeyName
 from openpilot.system.ui.widgets import Widget
 from openpilot.system.ui.widgets.list_view import multiple_button_item, toggle_item
@@ -14,6 +15,19 @@ if gui_app.sunnypilot_ui():
   from openpilot.system.ui.sunnypilot.widgets.list_view import multiple_button_item_sp as multiple_button_item
 
 PERSONALITY_TO_INT = log.LongitudinalPersonality.schema.enumerants
+DISPLAY_DM_REVERSE_PATH = Path("/data/params/d/DisplayDMReverseGear")
+
+
+def get_file_toggle(path: Path, default: bool = False) -> bool:
+  try:
+    return path.read_text().strip() != "0"
+  except OSError:
+    return default
+
+
+def set_file_toggle(path: Path, state: bool) -> None:
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text("1" if state else "0")
 
 # Description constants
 DESCRIPTIONS = {
@@ -32,6 +46,7 @@ DESCRIPTIONS = {
     "without a turn signal activated while driving over 31 mph (50 km/h)."
   ),
   "AlwaysOnDM": tr_noop("Enable driver monitoring even when sunnypilot is not engaged."),
+  "DisplayDMReverseGear": tr_noop("Show the driver monitoring camera while the car is in reverse gear."),
   'RecordFront': tr_noop("Upload data from the driver facing camera and help improve the driver monitoring algorithm."),
   "IsMetric": tr_noop("Display speed in km/h instead of mph."),
   "RecordAudio": tr_noop("Record and store microphone audio while driving. The audio will be included in the dashcam video in comma connect."),
@@ -76,6 +91,12 @@ class TogglesLayout(Widget):
         "monitoring.png",
         False,
       ),
+      "DisplayDMReverseGear": (
+        lambda: tr("Display DM Camera in Reverse Gear"),
+        DESCRIPTIONS["DisplayDMReverseGear"],
+        "monitoring.png",
+        False,
+      ),
       "RecordFront": (
         lambda: tr("Record and Upload Driver Camera"),
         DESCRIPTIONS["RecordFront"],
@@ -109,16 +130,18 @@ class TogglesLayout(Widget):
     self._toggles = {}
     self._locked_toggles = set()
     for param, (title, desc, icon, needs_restart) in self._toggle_defs.items():
+      initial_state = get_file_toggle(DISPLAY_DM_REVERSE_PATH, default=True) if param == "DisplayDMReverseGear" else self._params.get_bool(param)
+
       toggle = toggle_item(
         title,
         desc,
-        self._params.get_bool(param),
+        initial_state,
         callback=lambda state, p=param: self._toggle_callback(state, p),
         icon=icon,
       )
 
       try:
-        locked = self._params.get_bool(param + "Lock")
+        locked = False if param == "DisplayDMReverseGear" else self._params.get_bool(param + "Lock")
       except UnknownKeyName:
         locked = False
       toggle.action_item.set_enabled(not locked)
@@ -202,7 +225,10 @@ class TogglesLayout(Widget):
     # TODO: make a param control list item so we don't need to manage internal state as much here
     # refresh toggles from params to mirror external changes
     for param in self._toggle_defs:
-      self._toggles[param].action_item.set_state(self._params.get_bool(param))
+      if param == "DisplayDMReverseGear":
+        self._toggles[param].action_item.set_state(get_file_toggle(DISPLAY_DM_REVERSE_PATH, default=True))
+      else:
+        self._toggles[param].action_item.set_state(self._params.get_bool(param))
 
     # these toggles need restart, block while engaged
     for toggle_def in self._toggle_defs:
@@ -239,6 +265,9 @@ class TogglesLayout(Widget):
   def _toggle_callback(self, state: bool, param: str):
     if param == "ExperimentalMode":
       self._handle_experimental_mode_toggle(state)
+      return
+    if param == "DisplayDMReverseGear":
+      set_file_toggle(DISPLAY_DM_REVERSE_PATH, state)
       return
 
     self._params.put_bool(param, state)
