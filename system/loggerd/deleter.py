@@ -12,12 +12,31 @@ from openpilot.system.loggerd.xattr_cache import getxattr
 
 MIN_BYTES = 5 * 1024 * 1024 * 1024
 MIN_PERCENT = 10
+MAX_RECORDING_AGE_DAYS = 31
 
 DELETE_LAST = ['boot', 'crash']
 
 PRESERVE_ATTR_NAME = 'user.preserve'
 PRESERVE_ATTR_VALUE = b'1'
 PRESERVE_COUNT = 5
+
+
+def segment_mtime(path: str) -> float:
+  try:
+    return os.path.getmtime(path)
+  except OSError:
+    return time.time()
+
+
+def is_segment_dir(d: str) -> bool:
+  date_str, _, seg_str = d.rpartition("--")
+  if not date_str:
+    return False
+  try:
+    int(seg_str)
+  except ValueError:
+    return False
+  return True
 
 
 def has_preserve_xattr(d: str) -> bool:
@@ -49,11 +68,33 @@ def get_preserved_segments(dirs_by_creation: list[str]) -> set[str]:
 
 def deleter_thread(exit_event: threading.Event):
   while not exit_event.is_set():
+    dirs = listdir_by_creation(Paths.log_root())
+    max_recording_age = time.time() - MAX_RECORDING_AGE_DAYS * 24 * 60 * 60
+    deleted_old_segment = False
+
+    for delete_dir in dirs:
+      delete_path = os.path.join(Paths.log_root(), delete_dir)
+      if not is_segment_dir(delete_dir) or segment_mtime(delete_path) >= max_recording_age:
+        continue
+      if any(name.endswith(".lock") for name in os.listdir(delete_path)):
+        continue
+
+      try:
+        cloudlog.info(f"deleting {delete_path}: older than {MAX_RECORDING_AGE_DAYS} days")
+        shutil.rmtree(delete_path)
+        deleted_old_segment = True
+        break
+      except OSError:
+        cloudlog.exception(f"issue deleting {delete_path}")
+
+    if deleted_old_segment:
+      exit_event.wait(.1)
+      continue
+
     out_of_bytes = get_available_bytes(default=MIN_BYTES + 1) < MIN_BYTES
     out_of_percent = get_available_percent(default=MIN_PERCENT + 1) < MIN_PERCENT
 
     if out_of_percent or out_of_bytes:
-      dirs = listdir_by_creation(Paths.log_root())
       preserved_dirs = get_preserved_segments(dirs)
 
       # remove the earliest directory we can
