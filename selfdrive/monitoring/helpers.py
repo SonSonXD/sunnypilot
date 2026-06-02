@@ -46,9 +46,9 @@ class DRIVER_MONITOR_SETTINGS:
     self._POSE_YAW_MIN_STEER_DEG = 30
     self._POSE_YAW_STEER_FACTOR = 0.15
     self._POSE_YAW_STEER_MAX_OFFSET = 0.3927
-    self._PITCH_NATURAL_OFFSET = 0.011 # initial value before offset is learned
+    self._PITCH_NATURAL_OFFSET = 0.029 # initial value before offset is learned
     self._PITCH_NATURAL_THRESHOLD = 0.449
-    self._YAW_NATURAL_OFFSET = 0.075 # initial value before offset is learned
+    self._YAW_NATURAL_OFFSET = 0.097 # initial value before offset is learned
     self._PITCH_NATURAL_VAR = 3*0.01
     self._YAW_NATURAL_VAR = 3*0.05
     self._PITCH_MAX_OFFSET = 0.124
