@@ -12,7 +12,8 @@ from openpilot.system.loggerd.xattr_cache import getxattr
 
 MIN_BYTES = 5 * 1024 * 1024 * 1024
 MIN_PERCENT = 10
-MAX_RECORDING_AGE_DAYS = 31
+MAX_RECORDING_AGE_DAYS = 2
+MAX_RECORDING_BYTES = 10 * 1024 * 1024 * 1024
 
 DELETE_LAST = ['boot', 'crash']
 
@@ -37,6 +38,21 @@ def is_segment_dir(d: str) -> bool:
   except ValueError:
     return False
   return True
+
+
+def get_dir_size(path: str) -> int:
+  total = 0
+  for root, _, files in os.walk(path):
+    for f in files:
+      try:
+        total += os.path.getsize(os.path.join(root, f))
+      except OSError:
+        pass
+  return total
+
+
+def get_recording_dirs_by_creation(dirs: list[str]) -> list[str]:
+  return [d for d in dirs if is_segment_dir(d)]
 
 
 def has_preserve_xattr(d: str) -> bool:
@@ -70,17 +86,20 @@ def deleter_thread(exit_event: threading.Event):
   while not exit_event.is_set():
     dirs = listdir_by_creation(Paths.log_root())
     max_recording_age = time.time() - MAX_RECORDING_AGE_DAYS * 24 * 60 * 60
+    recording_dirs = get_recording_dirs_by_creation(dirs)
+    recording_size = sum(get_dir_size(os.path.join(Paths.log_root(), d)) for d in recording_dirs)
     deleted_old_segment = False
 
-    for delete_dir in dirs:
+    for delete_dir in recording_dirs:
       delete_path = os.path.join(Paths.log_root(), delete_dir)
-      if not is_segment_dir(delete_dir) or segment_mtime(delete_path) >= max_recording_age:
+      if segment_mtime(delete_path) >= max_recording_age and recording_size <= MAX_RECORDING_BYTES:
         continue
       if any(name.endswith(".lock") for name in os.listdir(delete_path)):
         continue
 
       try:
-        cloudlog.info(f"deleting {delete_path}: older than {MAX_RECORDING_AGE_DAYS} days")
+        reason = f"older than {MAX_RECORDING_AGE_DAYS} days" if segment_mtime(delete_path) < max_recording_age else f"recordings over {MAX_RECORDING_BYTES // 1024 ** 3} GB"
+        cloudlog.info(f"deleting {delete_path}: {reason}")
         shutil.rmtree(delete_path)
         deleted_old_segment = True
         break
