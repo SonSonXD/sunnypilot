@@ -27,7 +27,17 @@ OpState = log.SelfdriveState.OpenpilotState
 CALIBRATED = log.LiveCalibrationData.Status.calibrated
 ROAD_CAM = VisionStreamType.VISION_STREAM_ROAD
 WIDE_CAM = VisionStreamType.VISION_STREAM_WIDE_ROAD
+DRIVER_CAM = VisionStreamType.VISION_STREAM_DRIVER
 DEFAULT_DEVICE_CAMERA = DEVICE_CAMERAS["tici", "ar0231"]
+DISPLAY_DM_REVERSE_PATH = "/data/params/d/DisplayDMReverseGear"
+
+
+def display_dm_reverse_enabled() -> bool:
+  try:
+    with open(DISPLAY_DM_REVERSE_PATH) as f:
+      return f.read().strip() != "0"
+  except OSError:
+    return True
 
 
 class BookmarkState(IntEnum):
@@ -215,8 +225,11 @@ class AugmentedRoadView(CameraView):
     # Render the base camera view
     super()._render(self._content_rect)
 
+    driver_reverse_view = self.stream_type == DRIVER_CAM
+
     # Draw all UI overlays
-    self._model_renderer.render(self._content_rect)
+    if not driver_reverse_view:
+      self._model_renderer.render(self._content_rect)
 
     # Fade out bottom of overlays for looks
     rl.draw_texture_ex(self._fade_texture, rl.Vector2(self._content_rect.x, self._content_rect.y), 0.0, 1.0, rl.WHITE)
@@ -224,7 +237,7 @@ class AugmentedRoadView(CameraView):
     alert_to_render, not_animating_out = self._alert_renderer.will_render()
 
     # Hide DMoji when disengaged unless AlwaysOnDM is enabled
-    should_draw_dmoji = (not self._hud_renderer.drawing_top_icons() and ui_state.is_onroad() and
+    should_draw_dmoji = (not driver_reverse_view and not self._hud_renderer.drawing_top_icons() and ui_state.is_onroad() and
                          (ui_state.status != UIStatus.DISENGAGED or ui_state.always_on_dm))
     self._driver_state_renderer.set_should_draw(should_draw_dmoji)
     self._driver_state_renderer.set_position(self._rect.x + 16, self._rect.y + 10)
@@ -246,7 +259,8 @@ class AugmentedRoadView(CameraView):
 
     # Custom UI extension point - add custom overlays here
     # Use self._content_rect for positioning within camera bounds
-    self._confidence_ball.render(self.rect)
+    if not driver_reverse_view:
+      self._confidence_ball.render(self.rect)
 
     self._bookmark_icon.render(self.rect)
 
@@ -261,7 +275,15 @@ class AugmentedRoadView(CameraView):
     self._pm.send('uiDebug', msg)
 
   def _switch_stream_if_needed(self, sm):
-    if sm['selfdriveState'].experimentalMode and WIDE_CAM in self.available_streams:
+    reverse_driver_view = (
+      display_dm_reverse_enabled() and
+      sm['carState'].gearShifter == car.CarState.GearShifter.reverse and
+      DRIVER_CAM in self.available_streams
+    )
+
+    if reverse_driver_view:
+      target = DRIVER_CAM
+    elif sm['selfdriveState'].experimentalMode and WIDE_CAM in self.available_streams:
       v_ego = sm['carState'].vEgo
       if v_ego < WIDE_CAM_MAX_SPEED:
         target = WIDE_CAM
@@ -300,6 +322,13 @@ class AugmentedRoadView(CameraView):
       self.view_from_wide_calib = view_frame_from_device_frame @ wide_from_device @ device_from_calib
 
   def _calc_frame_matrix(self, rect: rl.Rectangle) -> np.ndarray:
+    if self.stream_type == DRIVER_CAM:
+      base = super()._calc_frame_matrix(rect)
+      driver_view_ratio = 1.5
+      base[0, 0] *= driver_view_ratio
+      base[1, 1] *= driver_view_ratio
+      return base
+
     # Get camera configuration
     # TODO: cache with vEgo?
     calib_time = ui_state.sm.recv_frame['liveCalibration']

@@ -1,12 +1,35 @@
 from cereal import log
+from pathlib import Path
 
 from openpilot.system.ui.widgets.scroller import NavScroller
-from openpilot.selfdrive.ui.mici.widgets.button import BigParamControl, BigMultiParamToggle
+from openpilot.selfdrive.ui.mici.widgets.button import BigParamControl, BigMultiParamToggle, BigToggle
 from openpilot.system.ui.lib.application import gui_app
 from openpilot.selfdrive.ui.layouts.settings.common import restart_needed_callback
 from openpilot.selfdrive.ui.ui_state import ui_state
 
 PERSONALITY_TO_INT = log.LongitudinalPersonality.schema.enumerants
+DISPLAY_DM_REVERSE_PATH = Path("/data/params/d/DisplayDMReverseGear")
+
+
+class FileBackedToggle(BigToggle):
+  def __init__(self, text: str, path: Path, default: bool = False):
+    self._path = path
+    self._default = default
+    super().__init__(text, initial_state=self._read_value())
+
+  def _read_value(self) -> bool:
+    try:
+      return self._path.read_text().strip() != "0"
+    except OSError:
+      return self._default
+
+  def _write_value(self):
+    self._path.parent.mkdir(parents=True, exist_ok=True)
+    self._path.write_text("1" if self._checked else "0")
+
+  def _handle_mouse_release(self, mouse_pos):
+    super()._handle_mouse_release(mouse_pos)
+    self._write_value()
 
 
 class TogglesLayoutMici(NavScroller):
@@ -18,6 +41,7 @@ class TogglesLayoutMici(NavScroller):
     is_metric_toggle = BigParamControl("use metric units", "IsMetric")
     ldw_toggle = BigParamControl("lane departure warnings", "IsLdwEnabled")
     always_on_dm_toggle = BigParamControl("always-on driver monitor", "AlwaysOnDM")
+    display_dm_reverse = FileBackedToggle("display driver camera in reverse gear", DISPLAY_DM_REVERSE_PATH, default=True)
     record_front = BigParamControl("record & upload driver camera", "RecordFront", toggle_callback=restart_needed_callback)
     record_mic = BigParamControl("record & upload mic audio", "RecordAudio", toggle_callback=restart_needed_callback)
     enable_openpilot = BigParamControl("enable sunnypilot", "OpenpilotEnabledToggle", toggle_callback=restart_needed_callback)
@@ -28,6 +52,7 @@ class TogglesLayoutMici(NavScroller):
       is_metric_toggle,
       ldw_toggle,
       always_on_dm_toggle,
+      display_dm_reverse,
       record_front,
       record_mic,
       enable_openpilot,
