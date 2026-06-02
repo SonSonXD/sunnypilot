@@ -8,7 +8,7 @@ from openpilot.selfdrive.ui.layouts.settings.common import restart_needed_callba
 from openpilot.selfdrive.ui.ui_state import ui_state
 
 PERSONALITY_TO_INT = log.LongitudinalPersonality.schema.enumerants
-DISPLAY_DM_REVERSE_PATH = Path("/data/params/d/DisplayDMReverseGear")
+DISPLAY_DM_REVERSE_PATH = Path("/data/community/DisplayDMReverseGear")
 
 
 class FileBackedToggle(BigToggle):

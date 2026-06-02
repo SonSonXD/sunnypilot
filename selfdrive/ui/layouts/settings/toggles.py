@@ -15,7 +15,7 @@ if gui_app.sunnypilot_ui():
   from openpilot.system.ui.sunnypilot.widgets.list_view import multiple_button_item_sp as multiple_button_item
 
 PERSONALITY_TO_INT = log.LongitudinalPersonality.schema.enumerants
-DISPLAY_DM_REVERSE_PATH = Path("/data/params/d/DisplayDMReverseGear")
+DISPLAY_DM_REVERSE_PATH = Path("/data/community/DisplayDMReverseGear")
 
 
 def get_file_toggle(path: Path, default: bool = False) -> bool:

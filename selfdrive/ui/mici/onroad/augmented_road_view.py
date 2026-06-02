@@ -29,7 +29,7 @@ ROAD_CAM = VisionStreamType.VISION_STREAM_ROAD
 WIDE_CAM = VisionStreamType.VISION_STREAM_WIDE_ROAD
 DRIVER_CAM = VisionStreamType.VISION_STREAM_DRIVER
 DEFAULT_DEVICE_CAMERA = DEVICE_CAMERAS["tici", "ar0231"]
-DISPLAY_DM_REVERSE_PATH = "/data/params/d/DisplayDMReverseGear"
+DISPLAY_DM_REVERSE_PATH = "/data/community/DisplayDMReverseGear"
 
 
 def display_dm_reverse_enabled() -> bool:
@@ -277,8 +277,7 @@ class AugmentedRoadView(CameraView):
   def _switch_stream_if_needed(self, sm):
     reverse_driver_view = (
       display_dm_reverse_enabled() and
-      sm['carState'].gearShifter == car.CarState.GearShifter.reverse and
-      DRIVER_CAM in self.available_streams
+      sm['carState'].gearShifter == car.CarState.GearShifter.reverse
     )
 
     if reverse_driver_view:
