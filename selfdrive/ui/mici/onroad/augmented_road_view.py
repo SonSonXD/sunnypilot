@@ -40,6 +40,10 @@ def display_dm_reverse_enabled() -> bool:
     return True
 
 
+def should_show_driver_reverse_view(sm) -> bool:
+  return display_dm_reverse_enabled() and sm['carState'].gearShifter == car.CarState.GearShifter.reverse
+
+
 class BookmarkState(IntEnum):
   HIDDEN = 0
   DRAGGING = 1
@@ -200,7 +204,9 @@ class AugmentedRoadView(CameraView):
 
   def _render(self, _):
     start_draw = time.monotonic()
-    self._switch_stream_if_needed(ui_state.sm)
+    sm = ui_state.sm
+    driver_reverse_view = should_show_driver_reverse_view(sm)
+    self._switch_stream_if_needed(sm)
 
     # Update calibration before rendering
     self._update_calibration()
@@ -225,8 +231,6 @@ class AugmentedRoadView(CameraView):
     # Render the base camera view
     super()._render(self._content_rect)
 
-    driver_reverse_view = self.stream_type == DRIVER_CAM
-
     # Draw all UI overlays
     if not driver_reverse_view:
       self._model_renderer.render(self._content_rect)
@@ -243,13 +247,14 @@ class AugmentedRoadView(CameraView):
     self._driver_state_renderer.set_position(self._rect.x + 16, self._rect.y + 10)
     self._driver_state_renderer.render()
 
-    self._hud_renderer.set_can_draw_top_icons(alert_to_render is None)
-    self._hud_renderer.set_wheel_critical_icon(alert_to_render is not None and not not_animating_out and
-                                               alert_to_render.visual_alert == car.CarControl.HUDControl.VisualAlert.steerRequired)
-    # TODO: have alert renderer draw offroad mici label below
-    if ui_state.started:
-      self._alert_renderer.render(self._content_rect)
-    self._hud_renderer.render(self._content_rect)
+    if not driver_reverse_view:
+      self._hud_renderer.set_can_draw_top_icons(alert_to_render is None)
+      self._hud_renderer.set_wheel_critical_icon(alert_to_render is not None and not not_animating_out and
+                                                 alert_to_render.visual_alert == car.CarControl.HUDControl.VisualAlert.steerRequired)
+      # TODO: have alert renderer draw offroad mici label below
+      if ui_state.started:
+        self._alert_renderer.render(self._content_rect)
+      self._hud_renderer.render(self._content_rect)
 
     # Draw fake rounded border
     rl.draw_rectangle_rounded_lines_ex(self._content_rect, 0.2 * 1.02, 10, 50, rl.BLACK)
@@ -275,10 +280,7 @@ class AugmentedRoadView(CameraView):
     self._pm.send('uiDebug', msg)
 
   def _switch_stream_if_needed(self, sm):
-    reverse_driver_view = (
-      display_dm_reverse_enabled() and
-      sm['carState'].gearShifter == car.CarState.GearShifter.reverse
-    )
+    reverse_driver_view = should_show_driver_reverse_view(sm)
 
     if reverse_driver_view:
       target = DRIVER_CAM
