@@ -253,9 +253,10 @@ class DriverMonitoring:
     if op_engaged and self.wheel_on_right_last is not None and self.wheel_on_right_last != self.wheel_on_right and not demo_mode:
       self.wheel_on_right = self.wheel_on_right_last
     driver_data = driver_state.rightDriverData if self.wheel_on_right else driver_state.leftDriverData
+    driver_data_deprecated = driver_data.deprecated
     if not all(len(x) > 0 for x in (driver_data.faceOrientation, driver_data.facePosition,
                                     driver_data.faceOrientationStd, driver_data.facePositionStd,
-                                    driver_data.readyProb, driver_data.notReadyProb)):
+                                    driver_data_deprecated.readyProb, driver_data_deprecated.notReadyProb)):
       return
 
     self.face_detected = driver_data.faceProb > self.settings._FACE_THRESHOLD
@@ -271,8 +272,8 @@ class DriverMonitoring:
                       * (driver_data.sunglassesProb < self.settings._SG_THRESHOLD)
     self.blink.right = driver_data.rightBlinkProb * (driver_data.rightEyeProb > self.settings._EYE_THRESHOLD) \
                       * (driver_data.sunglassesProb < self.settings._SG_THRESHOLD)
-    self.eev1 = driver_data.notReadyProb[0]
-    self.eev2 = driver_data.readyProb[0]
+    self.eev1 = driver_data_deprecated.notReadyProb[0]
+    self.eev2 = driver_data_deprecated.readyProb[0]
 
     self.distracted_types = self._get_distracted_types()
     self.driver_distracted = (DistractedType.DISTRACTED_E2E in self.distracted_types or DistractedType.DISTRACTED_POSE in self.distracted_types
