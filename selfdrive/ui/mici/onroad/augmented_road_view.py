@@ -236,7 +236,8 @@ class AugmentedRoadView(CameraView):
       self._model_renderer.render(self._content_rect)
 
     # Fade out bottom of overlays for looks
-    rl.draw_texture_ex(self._fade_texture, rl.Vector2(self._content_rect.x, self._content_rect.y), 0.0, 1.0, rl.WHITE)
+    if not driver_reverse_view:
+      rl.draw_texture_ex(self._fade_texture, rl.Vector2(self._content_rect.x, self._content_rect.y), 0.0, 1.0, rl.WHITE)
 
     alert_to_render, not_animating_out = self._alert_renderer.will_render()
 
@@ -267,10 +268,11 @@ class AugmentedRoadView(CameraView):
     if not driver_reverse_view:
       self._confidence_ball.render(self.rect)
 
-    self._bookmark_icon.render(self.rect)
+    if not driver_reverse_view:
+      self._bookmark_icon.render(self.rect)
 
     # Draw darkened background and text if not onroad
-    if not ui_state.started:
+    if not ui_state.started and not driver_reverse_view:
       rl.draw_rectangle(int(self.rect.x), int(self.rect.y), int(self.rect.width), int(self.rect.height), rl.Color(0, 0, 0, 175))
       self._offroad_label.render(self._rect)
 

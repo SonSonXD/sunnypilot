@@ -377,6 +377,7 @@ class CameraView(Widget):
     self.client = self._target_client
     self._stream_type = self._target_stream_type
     self._texture_needs_update = True
+    self._enhance_driver_val[0] = 1 if self._stream_type == VisionStreamType.VISION_STREAM_DRIVER else 0
 
     # Reset state
     self._target_client = None
